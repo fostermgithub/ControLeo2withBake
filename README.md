@@ -1,4 +1,4 @@
-# ControlLeo2withBake
+# ControLeo2withBake
 Informal fork of ControlLeo2 reflow oven code with additions for parts baking
 
 For the original, see
