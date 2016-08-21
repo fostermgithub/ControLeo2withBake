@@ -16,13 +16,18 @@
 #ifdef BAKE
 #include "ReflowWizard.h"
 
+#define S2SEC(t) (t)
+//#define S2SEC(t) (t * SLOT_MINS * 60)
+//            phase[i].phaseMinDuration = getSetting(SETTING_BAKE_DURATION) * SLOT_MINS * 60; //convert slot count to seconds
+//            phase[i].phaseMaxDuration = (getSetting(SETTING_BAKE_DURATION) * SLOT_MINS * 60) + 60; //max is just one minute more
+
 boolean Bake() {
   static int bakePhase = PHASE_INIT;
   static int outputType[4];
   static int maxTemperature;
   static boolean learningMode;
   static phaseData phase[PHASE_REFLOW + 1];
-  static unsigned long phaseStartTime, reflowStartTime;
+  static unsigned long phaseStartTime, reflowStartTime, bakeDuration;
   static int elementDutyCounter[4];
   static int counter = 0;
   static boolean firstTimeInPhase = true;
@@ -32,7 +37,7 @@ boolean Bake() {
   unsigned long currentTime = millis();
   int i, j;
   int elementDutyStart = 0;
-  char msgbuf[17] = "                ";
+  // char msgbuf[17] = "                ";
 
   // check the temperature
   currentTemperature = getCurrentTemperature();
@@ -52,11 +57,9 @@ boolean Bake() {
 
   switch (bakePhase) {
     case PHASE_INIT: // User has requested to start a bake
-
       // Make sure the oven is at or below the MAX bake temp.
       maxTemperature = getSetting(SETTING_BAKE_TEMP);
-
-      if (currentTemperature > (maxTemperature - 5)) {
+      if (currentTemperature > (maxTemperature - (2+3))) {
         lcdPrintLine(0, "TOO Warm to Bake");
         lcdPrintLine(1, "");
         Serial.println(F("Oven too hot to start bake.  Please wait ..."));
@@ -85,26 +88,22 @@ boolean Bake() {
       for (i = PHASE_PRESOAK; i <= PHASE_REFLOW; i++) {
         for (j = 0; j < 4; j++)
           phase[i].elementDutyCycle[j] = (getSetting(SETTING_PRESOAK_D4_DUTY_CYCLE + ((i - PHASE_PRESOAK) * 4) + j)) / 2;
-        // Time to peak temperature should be between 3.5 and 5.5 minutes.
-        // While J-STD-20 gives exact phase temperatures, the reading depends very much on the thermocouple used
-        // and its location.  Varying the phase temperatures as the max temperature changes allows for thermocouple
-        // variation.
         // Keep in mind that there is a 2C error in the MAX31855, and typically a 3C error in the thermocouple.
         switch (i) {
-          case PHASE_PRESOAK:
-            phase[i].endTemperature = maxTemperature * 3 / 5; // J-STD-20 gives 150C
-            phase[i].phaseMinDuration = 60;
-            phase[i].phaseMaxDuration = 100;
-            break;
+          case PHASE_PRESOAK: //this phase is skipped in baking, so doesn't need different values than the next phase
           case PHASE_SOAK:
-            phase[i].endTemperature = maxTemperature * 4 / 5; // J-STD-20 gives 200C
-            phase[i].phaseMinDuration = 80;
+            phase[i].endTemperature = maxTemperature * 4 / 5;
+            phase[i].phaseMinDuration = 60; // seconds
             phase[i].phaseMaxDuration = 140;
             break;
           case PHASE_REFLOW:
             phase[i].endTemperature = maxTemperature;
-            phase[i].phaseMinDuration = getSetting(SETTING_BAKE_DURATION) * SLOT_MINS * 60; //convert slot count to seconds
-            phase[i].phaseMaxDuration = (getSetting(SETTING_BAKE_DURATION) * SLOT_MINS * 60) + 60; //max is just one minute more
+            //phase[i].phaseMinDuration = getSetting(SETTING_BAKE_DURATION); //convert slot count to seconds with S2SEC() macro
+            //phase[i].phaseMaxDuration = (getSetting(SETTING_BAKE_DURATION) + SLOT_MINS); //max is just one slot time more
+            //phase[i].phaseMinDuration = getSetting(SETTING_BAKE_DURATION) * SLOT_MINS * 60; //convert slot count to seconds
+            //phase[i].phaseMaxDuration = phase[i].phaseMinDuration + 60; //max is just one minute more
+            bakeDuration = (unsigned long) getSetting(SETTING_BAKE_DURATION) * SLOT_MINS * 60; //convert slot count to seconds
+            // maxBakeTime = minBakeDuration + 60;
             break;
         }
       }
@@ -244,10 +243,13 @@ boolean Bake() {
           }
         }
       }
-      if (currentTime - phaseStartTime >= (unsigned long) (phase[bakePhase].phaseMinDuration * MILLIS_TO_SECONDS)) {
+      if (((currentTime - phaseStartTime) / MILLIS_TO_SECONDS) >= bakeDuration) {
         // done baking
         lcdPrintLine(1, "Bake done.");
         Serial.println(F("Bake duration complete."));
+        //Serial.print(currentTime); Serial.print("(c), ");
+        //Serial.print(phaseStartTime); Serial.print("(s), ");
+        //Serial.print(phase[bakePhase].phaseMinDuration); Serial.print("(d)\n");
         playTones(TUNE_REFLOW_DONE);
         bakePhase = PHASE_ABORT_REFLOW;
       }
@@ -256,54 +258,10 @@ boolean Bake() {
       if (counter++ % 20 == 0) {
         displayReflowTemperature(currentTime, reflowStartTime, phaseStartTime, currentTemperature);
         if (! firstTimeInPhase)
-          displayTime(9, ((phase[bakePhase].phaseMinDuration * MILLIS_TO_SECONDS) - (currentTime - phaseStartTime)) / MILLIS_TO_SECONDS);
+          displayTime(9, (bakeDuration - ((currentTime - phaseStartTime) / MILLIS_TO_SECONDS)));
       }
       break;
       
-/* these phases are not used, so omit them from the code
-    case PHASE_WAITING:  // No need for wait in baking, Shut off elements, skip to cooling
-      if (firstTimeInPhase) {
-        firstTimeInPhase = false;
-        Serial.println(F("******* Phase: Bake Waiting *******"));
-        Serial.println(F("Turning all heating elements off ..."));
-        // Make sure all the elements are off (keep convection fans on)
-        for (int i = 0; i < 4; i++) {
-          if (outputType[i] != TYPE_CONVECTION_FAN)
-            digitalWrite(i + 4, LOW);
-        }
-        bakePhase = PHASE_COOLING_BOARDS_IN;
-        firstTimeInPhase = true;
-      }
-      break;
-
-    case PHASE_COOLING_BOARDS_IN: // Start cooling the oven.
-      if (firstTimeInPhase) {
-        firstTimeInPhase = false;
-        // Update the display
-        lcdPrintLine(0, "Cool - open door");
-        Serial.println(F("******* Phase: Cooling *******"));
-        Serial.println(F("Open the oven door ..."));
-
-        // If a servo is attached, use it to open the door over 3 seconds
-        setServoPosition(getSetting(SETTING_SERVO_OPEN_DEGREES), 3000);
-        // Play a tune to let the user know the door should be opened
-        playTones(TUNE_REFLOW_DONE);
-      }
-      // Update the temperature roughly once per second
-      if (counter++ % 20 == 0)
-        displayReflowTemperature(currentTime, reflowStartTime, phaseStartTime, currentTemperature);
-
-      // stay in this phase until the oven is mostly cool
-      if (currentTemperature < (BAKE_MINTEMP - 10.0)) {
-        bakePhase = PHASE_COOLING_BOARDS_OUT;
-      }
-      break;
-
-    case PHASE_COOLING_BOARDS_OUT: // just play tone and skip to next phase
-      playTones(TUNE_REMOVE_BOARDS);
-      bakePhase = PHASE_ABORT_REFLOW;
-      break;
-*/
     case PHASE_ABORT_REFLOW: // stop baking
       lcdPrintLine(0, "Bake is done");
       lcdPrintLine(1, "Remove parts.");
@@ -329,9 +287,9 @@ void displayTime(int offset, unsigned long val) { // val in seconds;
   lcd.setCursor(offset, 1);
   if (val >= 60) {
     if (val >= (60 * 60)) { // hrs
-      lcd.print(val / (60 * 60));
+      lcd.print((unsigned long) val / (60 * 60));
       lcd.print("h:");
-      lcd.print((val / 60) % 60);
+      lcd.print((unsigned long) (val / 60) % 60);
       lcd.print("m ");
     } else {
       lcd.print((val / 60) % 60);

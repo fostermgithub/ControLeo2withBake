@@ -468,9 +468,9 @@ void lcdPrintPhaseMessage(int phase, const char* str) {
 void serialDisplayPhaseData(char *phaseDesc, struct phaseData *pd, int *outputType) {
   sprintf(debugBuffer, "******* Phase: %s *******", phaseDesc);
   Serial.println(debugBuffer);
-  sprintf(debugBuffer, "Minimum duration = %d seconds", pd->phaseMinDuration);
+  sprintf(debugBuffer, "Minimum duration = %u seconds", pd->phaseMinDuration);
   Serial.println(debugBuffer);
-  sprintf(debugBuffer, "Maximum duration = %d seconds", pd->phaseMaxDuration);
+  sprintf(debugBuffer, "Maximum duration = %u seconds", pd->phaseMaxDuration);
   Serial.println(debugBuffer);
   sprintf(debugBuffer, "End temperature = %d Celsius", pd->endTemperature);
   Serial.println(debugBuffer);

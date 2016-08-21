@@ -99,11 +99,11 @@ struct phaseData {
 
 #ifdef BAKE
 // baking parameter defaults
-#define SLOT_MINS 30            // nr of minutes per timeslot in bake duration setting
+#define SLOT_MINS 60            // nr of minutes per timeslot in bake duration setting
 #define BAKE_MINTEMP 40.0       // don't consider bake cycle start until min temp is reached
 #define BAKE_MAXTEMP 90.0       // set upper limit - nothing should require baking this high
 #define BAKE_TEMP 70.0          //*C - depends upon mfg/parts - this number may need to be higher/lower
-#define BAKE_DURATION (4*(60/SLOT_MINS)) //default to 4 hrs - actual duration really depends on temperature and device
+#define BAKE_DURATION (16*(60/SLOT_MINS)) //default to 4 hrs - actual duration really depends on temperature and device
 #endif // BAKE
 
 // Thermocouple

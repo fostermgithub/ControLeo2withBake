@@ -75,6 +75,7 @@
 *             The door is also closed when ControLeo2 is turned on.
 *******************************************************************************/
 
+#define VER "Reflow v1.5h"
 
 // ***** INCLUDES *****
 #include <ControLeo2.h>
@@ -113,7 +114,7 @@ void setup() {
 
   // Write the initial message on the LCD screen
   lcdPrintLine(0, "ControLeo2");
-  lcdPrintLine(1, "Reflow v1.5c");
+  lcdPrintLine(1, VER);
   delay(100);
   playTones(TUNE_STARTUP);
   delay(3000);
@@ -126,7 +127,7 @@ void setup() {
   if (getSetting(SETTING_LEARNING_MODE) == false)
     mode = 2;
   
-  Serial.println(F("ControLeo2 Reflow Oven controller v1.5c"));
+  Serial.println(F(VER));
   
   // Make sure the oven door is closed
   setServoPosition(getSetting(SETTING_SERVO_CLOSED_DEGREES), 1000);
